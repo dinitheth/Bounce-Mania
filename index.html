@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bounce Mania</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            touch-action: none;
+            background-color: #1a1a2e;
+            font-family: 'Arial', sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #ui-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            pointer-events: auto;
+            width: 90%;
+            max-width: 400px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            visibility: hidden;
+        }
+        .menu.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .btn {
+            background: #4361ee;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 50px;
+            font-size: 18px;
+            margin: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            pointer-events: auto;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            width: 85%;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .difficulty-btn {
+            padding: 8px 12px;
+            margin: 0 5px;
+            font-size: 14px;
+            background: #e9ecef;
+            color: #333;
+        }
+        
+        .difficulty-btn.active {
+            background: #4361ee;
+            color: white;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #4361ee, #3a0ca3);
+        }
+        .btn-secondary {
+            background: linear-gradient(45deg, #f72585, #b5179e);
+        }
+        .score-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .coins-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #ffd700;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .progress-container {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4361ee, #f72585);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .tutorial {
+            position: absolute;
+            bottom: 100px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            margin: 0 20px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .tutorial.active {
+            opacity: 1;
+        }
+        .tutorial-img {
+            width: 60px;
+            height: 60px;
+            margin: 10px auto;
+            display: block;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .item-shop {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .shop-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .shop-item.selected {
+            border-color: #4361ee;
+            box-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
+        }
+        .shop-item-img {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 5px;
+            border-radius: 50%;
+        }
+        .shop-item-price {
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .locked {
+            position: relative;
+        }
+        .locked::after {
+            content: '🔒';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            background: rgba(0, 0, 0, 0.5);
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+        .daily-reward {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+            background: linear-gradient(45deg, #4361ee, #f72585);
+            position: relative;
+            animation: spin 2s ease-out;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(720deg); }
+        }
+        .tab-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 8px 15px;
+            margin: 0 5px;
+            background: #e9ecef;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab.active {
+            background: #4361ee;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .leaderboard-rank {
+            font-weight: bold;
+            width: 30px;
+        }
+        .leaderboard-name {
+            flex-grow: 1;
+            text-align: left;
+        }
+        .leaderboard-score {
+            font-weight: bold;
+            color: #4361ee;
+        }
+        .you {
+            background: rgba(67, 97, 238, 0.1);
+        }
+        .notification {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(67, 97, 238, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: notification 2s forwards;
+            z-index: 100;
+        }
+        @keyframes notification {
+            0% { opacity: 0; transform: translate(-50%, 20px); }
+            20% { opacity: 1; transform: translate(-50%, 0); }
+            80% { opacity: 1; transform: translate(-50%, 0); }
+            100% { opacity: 0; transform: translate(-50%, -20px); }
+        }
+        
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            pointer-events: auto;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(5px);
+            z-index: 20;
+        }
+        
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-container">
+            <div class="score-display">Score: <span id="score">0</span></div>
+            <div class="coins-display">🪙 <span id="coins">0</span></div>
+            <div class="progress-container">
+                <div class="progress-bar" id="levelProgress"></div>
+            </div>
+            <button class="back-button" id="backToMenuBtn">⬅ MENU</button>
+            
+            <div class="tutorial" id="tutorial">
+                <div class="tutorial-img">👆</div>
+                Tap to bounce the ball higher!
+            </div>
+            
+            <!-- Main Menu -->
+            <div class="menu" id="mainMenu">
+                <h1 style="margin-bottom:20px; color:#4361ee;">BOUNCE MANIA</h1>
+                <div style="margin-bottom:15px;">
+                    <h3 style="color:#666;">Difficulty</h3>
+                    <div style="display:flex; justify-content:center; margin-top:5px;">
+                        <button class="btn difficulty-btn" data-difficulty="easy">Easy</button>
+                        <button class="btn difficulty-btn active" data-difficulty="normal">Normal</button>
+                        <button class="btn difficulty-btn" data-difficulty="hard">Hard</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="playBtn">PLAY</button><br>
+                <button class="btn" id="shopBtn">UPDATE</button><br>
+                <button class="btn" id="leaderboardBtn">LEADERBOARD</button><br>
+                <button class="btn" id="dailyBtn">DAILY REWARDS</button>
+            </div>
+            
+            <!-- Game Over Menu -->
+            <div class="menu" id="gameOverMenu">
+                <h2 style="margin-bottom:10px;">GAME OVER</h2>
+                <p style="margin-bottom:20px;">Score: <span id="finalScore">0</span></p>
+                <button class="btn btn-primary" id="restartBtn">PLAY AGAIN</button><br>
+                <button class="btn" id="mainMenuBtn">MAIN MENU</button><br>
+            </div>
+            
+            <!-- Shop Menu (renamed to Update) -->
+            <div class="menu" id="shopMenu">
+                <h2 style="margin-bottom:10px;">UPDATE</h2>
+                <div class="coins-display" style="position:relative; top:0; right:0; margin-bottom:15px;">🪙 <span id="shopCoins">0</span></div>
+                
+                <div class="tab-container">
+                    <div class="tab active" data-tab="balls">Balls</div>
+                    <div class="tab" data-tab="themes">Themes</div>
+                </div>
+                
+                <div class="tab-content active" id="ballsTab">
+                    <div class="item-shop" id="ballShop">
+                        <!-- Ball items will be added dynamically -->
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="themesTab">
+                    <div class="item-shop" id="themeShop">
+                        <!-- Theme items will be added dynamically -->
+                    </div>
+                </div>
+                
+                <button class="btn" id="backFromShopBtn" style="margin-top:15px;">BACK</button>
+            </div>
+            
+            <!-- Leaderboard Menu -->
+            <div class="menu" id="leaderboardMenu">
+                <h2 style="margin-bottom:10px;">LEADERBOARD</h2>
+                <div id="leaderboardList" style="max-height:300px; overflow-y:auto;">
+                    <!-- Leaderboard items will be added dynamically -->
+                </div>
+                <button class="btn" id="backFromLeaderboardBtn" style="margin-top:15px;">BACK</button>
+            </div>
+            
+            <!-- Daily Rewards Menu -->
+            <div class="menu" id="dailyMenu">
+                <h2 style="margin-bottom:10px;">DAILY REWARDS</h2>
+                <div class="daily-reward" id="dailyRewardWheel"></div>
+                <p id="dailyRewardMessage">Spin for your daily reward!</p>
+                <button class="btn btn-primary" id="spinBtn">SPIN</button><br>
+                <button class="btn" id="backFromDailyBtn">BACK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const config = {
+            initialBallSpeed: 15,
+            gravity: 0.6,                  // Increased gravity
+            jumpForce: -15,
+            platformSpeed: 1.8,            // Faster platform movement
+            platformWidth: 80,             // Smaller platforms
+            platformHeight: 15,            // Thinner platforms
+            obstacleFrequency: 0.03,       // More obstacles
+            coinFrequency: 0.025,          // Slightly fewer coins
+            speedIncreaseInterval: 800,    // Faster speed increase
+            speedIncreaseAmount: 0.15,     // Larger speed increases
+            maxSpeed: 5,                   // Higher max speed
+            platformSpawnChance: 0.005     // Lower chance to spawn platforms (new property)
+        };
+        
+        // Game State
+        const gameState = {
+            score: 0,
+            coins: 0,
+            level: 1,
+            levelProgress: 0,
+            isGameActive: false,
+            currentBall: 'default',
+            currentTheme: 'default',
+            unlockedBalls: ['default'],
+            unlockedThemes: ['default'],
+            tutorialShown: false,
+            lastDailySpin: null,
+            highScore: 0,
+            difficulty: 'normal' // New property for difficulty setting
+        };
+        
+        // Helper function to convert hex color to rgb for glow effects
+        function hexToRgb(hex) {
+            // Remove the # if it exists
+            hex = hex.replace('#', '');
+            
+            // Parse the hex values
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            
+            return `${r}, ${g}, ${b}`;
+        }
+        
+        // Load saved game state from localStorage
+        function loadGameState() {
+            try {
+                const savedState = localStorage.getItem('bounceMasterState');
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    Object.assign(gameState, parsedState);
+                }
+            } catch (e) {
+                console.log('Error loading saved game state:', e);
+                // Continue with default state if there's an error
+            }
+            
+            // Initialize coin display
+            document.getElementById('coins').textContent = gameState.coins;
+            document.getElementById('shopCoins').textContent = gameState.coins;
+        }
+        
+        // Save game state to localStorage
+        function saveGameState() {
+            try {
+                localStorage.setItem('bounceMasterState', JSON.stringify(gameState));
+            } catch (e) {
+                console.log('Error saving game state:', e);
+                // Show notification to user
+                showNotification('Error saving game progress');
+            }
+        }
+        
+        // Game Assets
+        const balls = [
+            { id: 'default', name: 'Regular', price: 0, color: '#4361ee', glow: '#3a0ca3' },
+            { id: 'fire', name: 'Fire Ball', price: 100, color: '#f72585', glow: '#ff4d6d' },
+            { id: 'ice', name: 'Ice Ball', price: 200, color: '#4cc9f0', glow: '#4361ee' },
+            { id: 'earth', name: 'Earth Ball', price: 300, color: '#2ec4b6', glow: '#118ab2' },
+            { id: 'gold', name: 'Gold Ball', price: 500, color: '#ffd700', glow: '#ffaa00' },
+            { id: 'cosmic', name: 'Cosmic Ball', price: 1000, color: '#7209b7', glow: '#3a0ca3' }
+        ];
+
+        const themes = [
+            { id: 'default', name: 'Classic', price: 0, bgStart: '#1a1a2e', bgEnd: '#16213e' },
+            { id: 'sunset', name: 'Sunset', price: 150, bgStart: '#1a1a2e', bgEnd: '#5c2a9d' },
+            { id: 'ocean', name: 'Ocean', price: 250, bgStart: '#03045e', bgEnd: '#0077b6' },
+            { id: 'forest', name: 'Forest', price: 350, bgStart: '#081c15', bgEnd: '#2d6a4f' },
+            { id: 'neon', name: 'Neon', price: 500, bgStart: '#10002b', bgEnd: '#240046' },
+            { id: 'space', name: 'Space', price: 1000, bgStart: '#000000', bgEnd: '#0b132b' }
+        ];
+
+        // Game Objects
+        class Ball {
+            constructor(x, y, radius, color, glow) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.color = color;
+                this.glow = glow;
+                this.velocityY = config.initialBallSpeed;
+                this.velocityX = 0;
+                this.rotation = 0;
+                this.trail = [];
+                this.maxTrail = 10;
+                // Convert hex to rgb for glow effects
+                this.glowRgb = hexToRgb(glow);
+            }
+            
+            update() {
+                // Add current position to trail
+                this.trail.unshift({x: this.x, y: this.y});
+                if (this.trail.length > this.maxTrail) {
+                    this.trail.pop();
+                }
+                
+                // Apply gravity
+                this.velocityY += config.gravity;
+                
+                // Update position
+                this.y += this.velocityY;
+                this.x += this.velocityX;
+                
+                // Update rotation
+                this.rotation += this.velocityX * 0.05;
+                
+                // Boundary checks
+                if (this.x < this.radius) {
+                    this.x = this.radius;
+                    this.velocityX *= -0.8;
+                }
+                if (this.x > canvas.width - this.radius) {
+                    this.x = canvas.width - this.radius;
+                    this.velocityX *= -0.8;
+                }
+            }
+            
+            draw(ctx) {
+                // Draw trail
+                for (let i = 0; i < this.trail.length; i++) {
+                    const alpha = (1 - i / this.maxTrail) * 0.3;
+                    const trailRadius = this.radius * (1 - i / this.maxTrail);
+                    
+                    ctx.beginPath();
+                    ctx.arc(this.trail[i].x, this.trail[i].y, trailRadius, 0, Math.PI * 2);
+                    // Fixed: Use RGB format for trail
+                    ctx.fillStyle = `rgba(${this.glowRgb}, ${alpha})`;
+                    ctx.fill();
+                }
+                
+                // Draw glow
+                ctx.shadowColor = this.glow;
+                ctx.shadowBlur = 15;
+                
+                // Draw ball
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                
+                // Reset shadow
+                ctx.shadowBlur = 0;
+                
+                // Draw pattern/detail on ball
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.6, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+            }
+            
+            jump() {
+                this.velocityY = config.jumpForce;
+                // Add random horizontal velocity for more dynamic gameplay
+                this.velocityX = (Math.random() - 0.5) * 4;
+            }
+        }
+        
+        class Platform {
+            constructor(x, y, width, height, type = 'normal') {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.type = type; // normal, moving, breaking, bouncy
+                this.speed = type === 'moving' ? (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random()) : 0;
+                this.health = type === 'breaking' ? 2 : Infinity;
+                this.opacity = 1;
+            }
+            
+            update() {
+                // Move platforms up
+                this.y -= config.platformSpeed;
+                
+                // For moving platforms
+                if (this.type === 'moving') {
+                    this.x += this.speed;
+                    
+                    // Reverse direction if hitting edges
+                    if (this.x < 0 || this.x + this.width > canvas.width) {
+                        this.speed *= -1;
+                    }
+                }
+                
+                // For breaking platforms
+                if (this.type === 'breaking' && this.health < Infinity && this.health > 0) {
+                    this.opacity = this.health / 2;
+                }
+            }
+            
+            draw(ctx) {
+                // Different styles for different platform types
+                switch(this.type) {
+                    case 'normal':
+                        ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                        break;
+                    case 'moving':
+                        ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})`;
+                        break;
+                    case 'breaking':
+                        ctx.fillStyle = `rgba(247, 37, 133, ${this.opacity})`;
+                        break;
+                    case 'bouncy':
+                        ctx.fillStyle = `rgba(76, 201, 240, ${this.opacity})`;
+                        break;
+                    case 'spike':
+                        ctx.fillStyle = `rgba(255, 0, 0, ${this.opacity})`;
+                        break;
+                    default:
+                        ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                }
+                
+                // Draw platform with rounded corners
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y, this.width, this.height, 5);
+                ctx.fill();
+                
+                // Draw spikes if it's a spike platform
+                if (this.type === 'spike') {
+                    const spikeHeight = 10;
+                    const spikeCount = Math.floor(this.width / 15);
+                    const spikeWidth = this.width / spikeCount;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    
+                    for (let i = 0; i < spikeCount; i++) {
+                        const spikeX = this.x + i * spikeWidth;
+                        ctx.lineTo(spikeX + spikeWidth / 2, this.y - spikeHeight);
+                        ctx.lineTo(spikeX + spikeWidth, this.y);
+                    }
+                    
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                    ctx.fill();
+                }
+                
+                // Draw springs if it's a bouncy platform
+                if (this.type === 'bouncy') {
+                    const springWidth = 10;
+                    const springCount = Math.floor(this.width / 20);
+                    
+                    for (let i = 0; i < springCount; i++) {
+                        const springX = this.x + 10 + i * 20;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(springX, this.y);
+                        ctx.lineTo(springX, this.y - 5);
+                        ctx.lineTo(springX - 5, this.y - 8);
+                        ctx.lineTo(springX + 5, this.y - 11);
+                        ctx.lineTo(springX - 5, this.y - 14);
+                        ctx.lineTo(springX, this.y - 17);
+                        
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        class Coin {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 12;
+                this.rotation = 0;
+                this.scale = 1;
+                this.scaleDirection = -0.01;
+                this.collected = false;
+                this.collectedTime = 0;
+            }
+            
+            update() {
+                // If collected, animate coin disappearing
+                if (this.collected) {
+                    this.collectedTime++;
+                    this.radius -= 0.5;
+                    this.y -= 2;
+                    return this.collectedTime > 20; // Return true when animation is done
+                }
+                
+                // Move coin up with the rest of the game
+                this.y -= config.platformSpeed;
+                
+                // Animate coin
+                this.rotation += 0.05;
+                this.scale += this.scaleDirection;
+                if (this.scale <= 0.8 || this.scale >= 1) {
+                    this.scaleDirection *= -1;
+                }
+                
+                return false; // Not done with animation
+            }
+            
+            draw(ctx) {
+                // Don't draw if collected and animation is done
+                if (this.collected && this.collectedTime > 20) return;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.scale(this.scale, 1);
+                
+                // Draw coin
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.collected ? 'rgba(255, 215, 0, 0.7)' : '#ffd700';
+                ctx.fill();
+                
+                // Draw coin details
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.8, 0, Math.PI * 2);
+                ctx.strokeStyle = this.collected ? 'rgba(255, 170, 0, 0.7)' : '#ffaa00';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw coin symbol
+                ctx.fillStyle = this.collected ? 'rgba(255, 170, 0, 0.7)' : '#ffaa00';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('₵', 0, 0);
+                
+                ctx.restore();
+            }
+            
+            collect() {
+                this.collected = true;
+            }
+        }
+        
+        // Initialize canvas
+        let canvas;
+        let ctx;
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        // Game variables
+        let ball;
+        let platforms = [];
+        let coins = [];
+        let speedMultiplier = 1;
+        let bgGradient;
+        let gameLoopId;
+        let lastScoreUpdateTime = 0;
+        
+        // Set difficulty presets
+        const difficultySettings = {
+            easy: {
+                gravity: 0.5,
+                platformSpeed: 1.5,
+                platformWidth: 100,
+                platformHeight: 20,
+                platformSpawnChance: 0.01,
+                speedIncreaseAmount: 0.1
+            },
+            normal: {
+                gravity: 0.6,
+                platformSpeed: 1.8,
+                platformWidth: 80,
+                platformHeight: 15,
+                platformSpawnChance: 0.005,
+                speedIncreaseAmount: 0.15
+            },
+            hard: {
+                gravity: 0.7,
+                platformSpeed: 2.0,
+                platformWidth: 60,
+                platformHeight: 12,
+                platformSpawnChance: 0.003,
+                speedIncreaseAmount: 0.2
+            }
+        };
+        
+        // Initialize game
+        function initGame() {
+            resizeCanvas();
+            
+            // Apply difficulty settings
+            const diffSetting = difficultySettings[gameState.difficulty];
+            config.gravity = diffSetting.gravity;
+            config.platformSpeed = diffSetting.platformSpeed;
+            config.platformWidth = diffSetting.platformWidth;
+            config.platformHeight = diffSetting.platformHeight;
+            config.platformSpawnChance = diffSetting.platformSpawnChance;
+            config.speedIncreaseAmount = diffSetting.speedIncreaseAmount;
+            
+            // Reset game state
+            gameState.score = 0;
+            gameState.level = 1;
+            gameState.levelProgress = 0;
+            document.getElementById('score').textContent = '0';
+            document.getElementById('levelProgress').style.width = '0%';
+            
+            // Show the back button when game starts
+            document.getElementById('backToMenuBtn').style.display = 'block';
+            
+            // Create ball with selected skin
+            const ballSkin = balls.find(b => b.id === gameState.currentBall);
+            ball = new Ball(
+                canvas.width / 2,
+                canvas.height / 2,
+                20,
+                ballSkin.color,
+                ballSkin.glow
+            );
+            
+            // Create initial platforms
+            platforms = [];
+            coins = [];
+            
+            // Create initial platform right below the ball
+            platforms.push(new Platform(
+                canvas.width / 2 - config.platformWidth / 2,
+                canvas.height / 2 + 100,
+                config.platformWidth,
+                config.platformHeight
+            ));
+            
+            // Add fewer initial platforms for increased difficulty
+            for (let i = 0; i < 5; i++) {
+                addPlatform();
+            }
+            
+            // Set theme
+            const themeSkin = themes.find(t => t.id === gameState.currentTheme);
+            bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGradient.addColorStop(0, themeSkin.bgStart);
+            bgGradient.addColorStop(1, themeSkin.bgEnd);
+            
+            // Reset speed
+            speedMultiplier = 1;
+            config.platformSpeed = 1.5; // Reset platform speed
+            
+            // Show tutorial for new players
+            if (!gameState.tutorialShown) {
+                document.getElementById('tutorial').classList.add('active');
+                setTimeout(() => {
+                    document.getElementById('tutorial').classList.remove('active');
+                    gameState.tutorialShown = true;
+                    saveGameState();
+                }, 3000);
+            }
+            
+            // Start game loop
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId); // Cancel any existing game loop
+            }
+            gameLoopId = requestAnimationFrame(gameLoop);
+            gameState.isGameActive = true;
+            
+            // Start timestamp for score updates
+            lastScoreUpdateTime = Date.now();
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!gameState.isGameActive) return;
+            
+            // Clear canvas
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Update ball
+            ball.update();
+            
+            // Check if ball is below the screen
+            if (ball.y > canvas.height + ball.radius * 2) {
+                gameOver();
+                return;
+            }
+            
+            // Check if ball has reached top 1/4 of screen and move everything down
+            if (ball.y < canvas.height * 0.25) {
+                const difference = canvas.height * 0.25 - ball.y;
+                ball.y += difference;
+                
+                // Move all platforms and coins down by the same amount
+                platforms.forEach(platform => {
+                    platform.y += difference;
+                });
+                
+                coins.forEach(coin => {
+                    coin.y += difference;
+                });
+            }
+            
+            // Update and draw all platforms
+            for (let i = platforms.length - 1; i >= 0; i--) {
+                const platform = platforms[i];
+                platform.update();
+                
+                // Remove platforms that are above the screen
+                if (platform.y + platform.height < 0) {
+                    platforms.splice(i, 1);
+                    addPlatform();
+                    continue;
+                }
+                
+                platform.draw(ctx);
+                
+                // Check collision with ball (only if ball is moving downward)
+                if (ball.velocityY > 0 && 
+                    ball.x + ball.radius > platform.x && 
+                    ball.x - ball.radius < platform.x + platform.width && 
+                    ball.y + ball.radius > platform.y && 
+                    ball.y + ball.radius < platform.y + platform.height + ball.velocityY) {
+                    
+                    // Different behavior based on platform type
+                    switch(platform.type) {
+                        case 'normal':
+                            ball.velocityY = -12;
+                            break;
+                        case 'moving':
+                            ball.velocityY = -12;
+                            // Add some horizontal velocity based on platform movement
+                            ball.velocityX += platform.speed * 0.5;
+                            break;
+                        case 'breaking':
+                            ball.velocityY = -12;
+                            platform.health--;
+                            if (platform.health <= 0) {
+                                platforms.splice(i, 1);
+                            }
+                            break;
+                        case 'bouncy':
+                            ball.velocityY = -20; // Extra bounce
+                            break;
+                        case 'spike':
+                            gameOver();
+                            return;
+                        default:
+                            ball.velocityY = -12;
+                    }
+                    
+                    // Play bounce sound
+                    playSound('bounce');
+                }
+            }
+            
+            // Update and draw all coins
+            for (let i = coins.length - 1; i >= 0; i--) {
+                const coin = coins[i];
+                const removeAfterUpdate = coin.update();
+                
+                // Remove coins that are above the screen or done with collection animation
+                if (coin.y + coin.radius < 0 || removeAfterUpdate) {
+                    coins.splice(i, 1);
+                    continue;
+                }
+                
+                coin.draw(ctx);
+                
+                // Check collision with ball (only if not already collected)
+                if (!coin.collected) {
+                    const dx = coin.x - ball.x;
+                    const dy = coin.y - ball.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < ball.radius + coin.radius) {
+                        // Collect coin
+                        coin.collect();
+                        gameState.coins++;
+                        document.getElementById('coins').textContent = gameState.coins;
+                        document.getElementById('shopCoins').textContent = gameState.coins;
+                        
+                        // Play coin sound
+                        playSound('coin');
+                        
+                        // Save updated coins
+                        saveGameState();
+                    }
+                }
+            }
+            
+            // Draw the ball
+            ball.draw(ctx);
+            
+            // Add new platform randomly with reduced chance
+            if (Math.random() < config.platformSpawnChance) {
+                addPlatform();
+            }
+            
+            // Add new coin randomly
+            if (Math.random() < config.coinFrequency) {
+                addCoin();
+            }
+            
+            // Update score based on time
+            const currentTime = Date.now();
+            if (currentTime - lastScoreUpdateTime > 1000) {
+                gameState.score += Math.floor(speedMultiplier * 10);
+                document.getElementById('score').textContent = gameState.score;
+                lastScoreUpdateTime = currentTime;
+                
+                // Update level progress
+                gameState.levelProgress += 2;
+                if (gameState.levelProgress >= 100) {
+                    gameState.levelProgress = 0;
+                    gameState.level++;
+                    
+                    // Increase difficulty
+                    speedMultiplier += 0.15;
+                    if (speedMultiplier > config.maxSpeed) {
+                        speedMultiplier = config.maxSpeed;
+                    }
+                    
+                    // Apply speed to game with progressive difficulty
+                    config.platformSpeed = 1.8 * speedMultiplier;
+                    
+                    // Reduce platform spawn chance as level increases
+                    config.platformSpawnChance = Math.max(0.0025, 0.005 - (gameState.level * 0.0004));
+                    
+                    // Make gravity stronger as level increases
+                    config.gravity = Math.min(1.0, 0.6 + (gameState.level * 0.03));
+                    
+                    // Show level up notification
+                    showNotification(`Level ${gameState.level}!`);
+                }
+                
+                document.getElementById('levelProgress').style.width = `${gameState.levelProgress}%`;
+            }
+            
+            // Continue game loop
+            if (gameState.isGameActive) {
+                gameLoopId = requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // Add new platform
+        function addPlatform() {
+            // Platform width decreases as level increases
+            const levelFactor = Math.min(0.7, 0.1 + (gameState.level * 0.05));
+            const minWidth = Math.max(30, 60 - (gameState.level * 2));
+            const maxWidth = Math.max(70, 120 - (gameState.level * 4));
+            const width = minWidth + Math.random() * (maxWidth - minWidth);
+            
+            // Randomly position platform with more space on edges as level increases
+            const edgeBuffer = gameState.level * 5;
+            const x = edgeBuffer + Math.random() * (canvas.width - width - (edgeBuffer * 2));
+            const y = canvas.height;
+            
+            // Determine platform type with increasing difficulty based on level
+            let type = 'normal';
+            const randomValue = Math.random();
+            
+            // More special platforms at higher levels
+            if (gameState.level >= 1) { // Start special platforms from level 1
+                if (randomValue < 0.15 + (gameState.level * 0.05)) {
+                    type = 'moving';
+                } else if (randomValue < 0.25 + (gameState.level * 0.05) && gameState.level >= 2) {
+                    type = 'breaking';
+                } else if (randomValue < 0.35 + (gameState.level * 0.05) && gameState.level >= 3) {
+                    type = 'bouncy';
+                } else if (randomValue < 0.4 + (gameState.level * 0.03) && gameState.level >= 3) {
+                    type = 'spike';
+                }
+            }
+            
+            platforms.push(new Platform(x, y, width, config.platformHeight, type));
+        }
+        
+        // Add new coin
+        function addCoin() {
+            const x = Math.random() * canvas.width;
+            const y = canvas.height;
+            
+            coins.push(new Coin(x, y));
+        }
+        
+        // Game over
+        function gameOver() {
+            gameState.isGameActive = false;
+            
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+            
+            // Update final score
+            document.getElementById('finalScore').textContent = gameState.score;
+            
+            // Show game over menu
+            hideAllMenus();
+            document.getElementById('gameOverMenu').classList.add('active');
+            
+            // Update high score if needed
+            if (!gameState.highScore || gameState.score > gameState.highScore) {
+                gameState.highScore = gameState.score;
+                showNotification(`New High Score: ${gameState.score}!`);
+                saveGameState();
+            }
+            
+            // Hide back button when game over
+            document.getElementById('backToMenuBtn').style.display = 'none';
+            
+            // Play game over sound
+            playSound('gameover');
+        }
+        
+        // Show notification
+        function showNotification(text) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = text;
+            
+            document.getElementById('ui-container').appendChild(notification);
+            
+            // Remove notification after animation
+            setTimeout(() => {
+                notification.remove();
+            }, 2000);
+        }
+        
+        // Play sound effect
+        function playSound(type) {
+            // In a real game, you would load and play actual sounds
+            // This is a simple placeholder function
+            console.log(`Playing sound: ${type}`);
+            
+            // For a real implementation, you could use the Web Audio API
+        }
+        
+        // Hide all menus
+        function hideAllMenus() {
+            document.querySelectorAll('.menu').forEach(menu => {
+                menu.classList.remove('active');
+            });
+            
+            // Hide back button when not in game
+            document.getElementById('backToMenuBtn').style.display = 'none';
+        }
+        
+        // Show main menu
+        function showMainMenu() {
+            hideAllMenus();
+            document.getElementById('mainMenu').classList.add('active');
+        }
+        
+        // Return to main menu from game
+        function returnToMainMenu() {
+            // Check if there's a high score to update
+            if (gameState.score > gameState.highScore) {
+                gameState.highScore = gameState.score;
+                saveGameState();
+                showNotification(`New High Score: ${gameState.score}!`);
+            }
+            
+            // Reset game state
+            gameState.isGameActive = false;
+            
+            // Hide in-game UI elements
+            document.getElementById('tutorial').classList.remove('active');
+            
+            // Show main menu
+            showMainMenu();
+        }
+        
+        // Start the game
+        function startGame() {
+            hideAllMenus();
+            initGame();
+        }
+        
+        // Initialize shop
+        function initShop() {
+            const ballShop = document.getElementById('ballShop');
+            const themeShop = document.getElementById('themeShop');
+            
+            // Clear existing items
+            ballShop.innerHTML = '';
+            themeShop.innerHTML = '';
+            
+            // Update shop coins
+            document.getElementById('shopCoins').textContent = gameState.coins;
+            
+            // Add ball items
+            balls.forEach(ball => {
+                const isUnlocked = gameState.unlockedBalls.includes(ball.id);
+                const isSelected = gameState.currentBall === ball.id;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `shop-item ${isUnlocked ? '' : 'locked'} ${isSelected ? 'selected' : ''}`;
+                itemDiv.dataset.id = ball.id;
+                itemDiv.dataset.type = 'ball';
+                
+                const itemImg = document.createElement('div');
+                itemImg.className = 'shop-item-img';
+                itemImg.style.backgroundColor = ball.color;
+                itemImg.style.boxShadow = `0 0 10px ${ball.glow}`;
+                
+                const itemName = document.createElement('div');
+                itemName.textContent = ball.name;
+                
+                const itemPrice = document.createElement('div');
+                itemPrice.className = 'shop-item-price';
+                itemPrice.textContent = isUnlocked ? 'Owned' : `${ball.price} 🪙`;
+                
+                itemDiv.appendChild(itemImg);
+                itemDiv.appendChild(itemName);
+                itemDiv.appendChild(itemPrice);
+                
+                ballShop.appendChild(itemDiv);
+            });
+            
+            // Add theme items
+            themes.forEach(theme => {
+                const isUnlocked = gameState.unlockedThemes.includes(theme.id);
+                const isSelected = gameState.currentTheme === theme.id;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `shop-item ${isUnlocked ? '' : 'locked'} ${isSelected ? 'selected' : ''}`;
+                itemDiv.dataset.id = theme.id;
+                itemDiv.dataset.type = 'theme';
+                
+                const itemImg = document.createElement('div');
+                itemImg.className = 'shop-item-img';
+                itemImg.style.background = `linear-gradient(${theme.bgStart}, ${theme.bgEnd})`;
+                
+                const itemName = document.createElement('div');
+                itemName.textContent = theme.name;
+                
+                const itemPrice = document.createElement('div');
+                itemPrice.className = 'shop-item-price';
+                itemPrice.textContent = isUnlocked ? 'Owned' : `${theme.price} 🪙`;
+                
+                itemDiv.appendChild(itemImg);
+                itemDiv.appendChild(itemName);
+                itemDiv.appendChild(itemPrice);
+                
+                themeShop.appendChild(itemDiv);
+            });
+        }
+        
+        // Initialize leaderboard
+        function initLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboardList');
+            leaderboardList.innerHTML = '';
+            
+            // In a real game, this would fetch actual leaderboard data
+            // For this demo, we'll create some dummy entries
+            const dummyScores = [
+                { name: 'Player1', score: 9876 },
+                { name: 'Player2', score: 8765 },
+                { name: 'Player3', score: 7654 },
+                { name: 'Player4', score: 6543 },
+                { name: 'Player5', score: 5432 },
+                { name: 'You', score: gameState.highScore || 0 },
+                { name: 'Player6', score: 4321 },
+                { name: 'Player7', score: 3210 },
+                { name: 'Player8', score: 2109 },
+                { name: 'Player9', score: 1098 }
+            ].sort((a, b) => b.score - a.score);
+            
+            // Add entries to leaderboard
+            dummyScores.forEach((entry, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `leaderboard-item ${entry.name === 'You' ? 'you' : ''}`;
+                
+                const rankDiv = document.createElement('div');
+                rankDiv.className = 'leaderboard-rank';
+                rankDiv.textContent = `${index + 1}.`;
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'leaderboard-name';
+                nameDiv.textContent = entry.name;
+                
+                const scoreDiv = document.createElement('div');
+                scoreDiv.className = 'leaderboard-score';
+                scoreDiv.textContent = entry.score;
+                
+                itemDiv.appendChild(rankDiv);
+                itemDiv.appendChild(nameDiv);
+                itemDiv.appendChild(scoreDiv);
+                
+                leaderboardList.appendChild(itemDiv);
+            });
+        }
+        
+        // Initialize daily rewards
+        function initDailyRewards() {
+            const spinBtn = document.getElementById('spinBtn');
+            const dailyRewardMessage = document.getElementById('dailyRewardMessage');
+            
+            // Check if already claimed today
+            const today = new Date().toDateString();
+            
+            if (gameState.lastDailySpin === today) {
+                spinBtn.disabled = true;
+                spinBtn.textContent = 'CLAIMED';
+                dailyRewardMessage.textContent = 'Come back tomorrow for more rewards!';
+            } else {
+                spinBtn.disabled = false;
+                spinBtn.textContent = 'SPIN';
+                dailyRewardMessage.textContent = 'Spin for your daily reward!';
+            }
+        }
+        
+        // Handle shop item selection
+        function handleShopSelection(e) {
+            if (!e.target.closest('.shop-item')) return;
+            
+            const item = e.target.closest('.shop-item');
+            const itemId = item.dataset.id;
+            const itemType = item.dataset.type;
+            
+            // Find the selected item in the assets array
+            const itemData = itemType === 'ball' 
+                ? balls.find(b => b.id === itemId)
+                : themes.find(t => t.id === itemId);
+            
+            // Check if already unlocked
+            const isUnlocked = itemType === 'ball'
+                ? gameState.unlockedBalls.includes(itemId)
+                : gameState.unlockedThemes.includes(itemId);
+            
+            if (isUnlocked) {
+                // Apply the selected item
+                if (itemType === 'ball') {
+                    gameState.currentBall = itemId;
+                } else {
+                    gameState.currentTheme = itemId;
+                }
+                
+                // Update selection UI
+                document.querySelectorAll(`.shop-item[data-type="${itemType}"]`).forEach(i => {
+                    i.classList.remove('selected');
+                });
+                item.classList.add('selected');
+                
+                saveGameState();
+                showNotification(`${itemData.name} selected!`);
+            } else {
+                // Try to purchase the item
+                if (gameState.coins >= itemData.price) {
+                    // Deduct coins
+                    gameState.coins -= itemData.price;
+                    document.getElementById('coins').textContent = gameState.coins;
+                    document.getElementById('shopCoins').textContent = gameState.coins;
+                    
+                    // Unlock the item
+                    if (itemType === 'ball') {
+                        gameState.unlockedBalls.push(itemId);
+                        gameState.currentBall = itemId;
+                    } else {
+                        gameState.unlockedThemes.push(itemId);
+                        gameState.currentTheme = itemId;
+                    }
+                    
+                    // Update UI
+                    item.classList.remove('locked');
+                    item.classList.add('selected');
+                    const priceElement = item.querySelector('.shop-item-price');
+                    if (priceElement) {
+                        priceElement.textContent = 'Owned';
+                    }
+                    
+                    // Update all other items to not be selected
+                    document.querySelectorAll(`.shop-item[data-type="${itemType}"]`).forEach(i => {
+                        if (i !== item) i.classList.remove('selected');
+                    });
+                    
+                    saveGameState();
+                    showNotification(`${itemData.name} purchased!`);
+                    playSound('purchase');
+                } else {
+                    showNotification('Not enough coins!');
+                }
+            }
+        }
+        
+        // Process daily spin
+        function processDailySpin() {
+            // Generate random reward
+            const rewards = [
+                { type: 'coins', amount: 50, text: '50 Coins' },
+                { type: 'coins', amount: 100, text: '100 Coins' },
+                { type: 'coins', amount: 150, text: '150 Coins' },
+                { type: 'coins', amount: 200, text: '200 Coins' },
+                { type: 'coins', amount: 500, text: '500 Coins' }
+            ];
+            
+            const reward = rewards[Math.floor(Math.random() * rewards.length)];
+            
+            // Apply reward
+            if (reward.type === 'coins') {
+                gameState.coins += reward.amount;
+                document.getElementById('coins').textContent = gameState.coins;
+                document.getElementById('shopCoins').textContent = gameState.coins;
+            }
+            
+            // Mark as claimed today
+            gameState.lastDailySpin = new Date().toDateString();
+            
+            // Update UI
+            const spinBtn = document.getElementById('spinBtn');
+            const dailyRewardMessage = document.getElementById('dailyRewardMessage');
+            
+            spinBtn.disabled = true;
+            spinBtn.textContent = 'CLAIMED';
+            dailyRewardMessage.textContent = `You won ${reward.text}!`;
+            
+            // Add animation for reward
+            showNotification(`Daily Reward: ${reward.text}`);
+            
+            // Play reward sound
+            playSound('reward');
+            
+            // Save game state
+            saveGameState();
+        }
+        
+        // Function to add event listeners
+        function setupEventListeners() {
+            // Canvas event listeners for touch/click
+            canvas.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                if (gameState.isGameActive) {
+                    ball.jump();
+                }
+            });
+            
+            canvas.addEventListener('click', function(e) {
+                if (gameState.isGameActive) {
+                    ball.jump();
+                }
+            });
+            
+            // Difficulty selection buttons
+            document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    const difficulty = this.dataset.difficulty;
+                    gameState.difficulty = difficulty;
+                    
+                    // Update UI
+                    document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Save preference
+                    saveGameState();
+                    
+                    // Show notification
+                    showNotification(`Difficulty set to ${difficulty.toUpperCase()}`);
+                });
+            });
+            
+            // UI button event listeners
+            document.getElementById('playBtn').addEventListener('click', function() {
+                console.log('Play button clicked');
+                showNotification('Starting game...');
+                startGame();
+            });
+            
+            // Back to menu button
+            document.getElementById('backToMenuBtn').addEventListener('click', function() {
+                if (gameState.isGameActive) {
+                    // Stop the game loop
+                    gameState.isGameActive = false;
+                    if (gameLoopId) {
+                        cancelAnimationFrame(gameLoopId);
+                        gameLoopId = null;
+                    }
+                    
+                    // Show confirmation if score is above threshold
+                    if (gameState.score > 100) {
+                        if (confirm('Are you sure you want to quit? Your current progress will be lost.')) {
+                            returnToMainMenu();
+                        } else {
+                            // Resume game if they cancel
+                            gameState.isGameActive = true;
+                            gameLoopId = requestAnimationFrame(gameLoop);
+                        }
+                    } else {
+                        returnToMainMenu();
+                    }
+                }
+            });
+            
+            document.getElementById('restartBtn').addEventListener('click', startGame);
+            document.getElementById('mainMenuBtn').addEventListener('click', showMainMenu);
+            
+            document.getElementById('shopBtn').addEventListener('click', function() {
+                hideAllMenus();
+                initShop();
+                document.getElementById('shopMenu').classList.add('active');
+            });
+            
+            document.getElementById('leaderboardBtn').addEventListener('click', function() {
+                hideAllMenus();
+                initLeaderboard();
+                document.getElementById('leaderboardMenu').classList.add('active');
+            });
+            
+            document.getElementById('dailyBtn').addEventListener('click', function() {
+                hideAllMenus();
+                initDailyRewards();
+                document.getElementById('dailyMenu').classList.add('active');
+            });
+            
+            document.getElementById('backFromShopBtn').addEventListener('click', showMainMenu);
+            document.getElementById('backFromLeaderboardBtn').addEventListener('click', showMainMenu);
+            document.getElementById('backFromDailyBtn').addEventListener('click', showMainMenu);
+            
+            document.getElementById('spinBtn').addEventListener('click', processDailySpin);
+            
+            // Shop item selection
+            document.getElementById('shopMenu').addEventListener('click', handleShopSelection);
+            
+            // Tab switching
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.dataset.tab;
+                    
+                    // Update active tab
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Show corresponding content
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(`${tabName}Tab`).classList.add('active');
+                });
+            });
+            
+            // Window resize event
+            window.addEventListener('resize', function() {
+                if (gameState.isGameActive) {
+                    // Store current ball position
+                    const ballX = ball.x / canvas.width; // Store as percentage
+                    const ballY = ball.y / canvas.height;
+                    
+                    resizeCanvas();
+                    
+                    // Update ball position based on new canvas size
+                    ball.x = ballX * canvas.width;
+                    ball.y = ballY * canvas.height;
+                    
+                    // Re-create background gradient
+                    const themeSkin = themes.find(t => t.id === gameState.currentTheme);
+                    bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    bgGradient.addColorStop(0, themeSkin.bgStart);
+                    bgGradient.addColorStop(1, themeSkin.bgEnd);
+                } else {
+                    resizeCanvas();
+                }
+            });
+            
+            // Disable context menu on long press (for mobile)
+            document.addEventListener('contextmenu', e => e.preventDefault());
+        }
+        
+        // Add roundRect to Canvas context if not supported
+        function polyfillRoundRect() {
+            if (!CanvasRenderingContext2D.prototype.roundRect) {
+                CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                    if (width < 2 * radius) radius = width / 2;
+                    if (height < 2 * radius) radius = height / 2;
+                    this.beginPath();
+                    this.moveTo(x + radius, y);
+                    this.arcTo(x + width, y, x + width, y + height, radius);
+                    this.arcTo(x + width, y + height, x, y + height, radius);
+                    this.arcTo(x, y + height, x, y, radius);
+                    this.arcTo(x, y, x + width, y, radius);
+                    this.closePath();
+                    return this;
+                };
+            }
+        }
+        
+        // Initialize the game
+        function init() {
+            try {
+                // Initialize canvas
+                canvas = document.getElementById('gameCanvas');
+                if (!canvas) {
+                    throw new Error('Canvas element not found');
+                }
+                
+                ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('Could not get canvas context');
+                }
+                
+                // Add roundRect polyfill
+                polyfillRoundRect();
+                
+                // Set initial canvas size
+                resizeCanvas();
+                
+                // Load saved state
+                loadGameState();
+                
+                // Set up difficulty button UI to match loaded state
+                document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                    if (btn.dataset.difficulty === gameState.difficulty) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                // Show main menu
+                showMainMenu();
+                
+                // Ensure the title shows "Bounce Mania" instead of "Bounce Master"
+                document.title = "Bounce Mania";
+                
+                // Make sure main menu is visible initially
+                if (!document.getElementById('mainMenu').classList.contains('active')) {
+                    showMainMenu();
+                }
+                
+                console.log('Game initialized successfully');
+            } catch (e) {
+                console.error('Error during initialization:', e);
+                // Show a fallback UI if there's an error
+                alert('There was an error loading the game. Please refresh the page to try again.');
+            }
+        }
+        
+        // Wait for DOM content to load before initializing
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
