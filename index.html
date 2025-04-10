@@ -110,6 +110,14 @@
             font-size: 24px;
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+        }
+        .coin-icon {
+            color: gold;
+            font-size: 22px;
+            margin-right: 5px;
+            text-shadow: 0 0 3px rgba(0,0,0,0.5);
         }
         .progress-container {
             position: absolute;
@@ -315,7 +323,7 @@
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
         }
         
-        /* Add this new style for pause overlay */
+        /* Pause overlay with fixed pointer-events */
         .pause-overlay {
             position: absolute;
             top: 0;
@@ -330,16 +338,19 @@
             opacity: 0;
             visibility: hidden;
             transition: opacity 0.3s ease;
+            pointer-events: none;
         }
         .pause-overlay.active {
             opacity: 1;
             visibility: visible;
+            pointer-events: auto;
         }
         .pause-content {
             background: white;
             padding: 20px;
             border-radius: 10px;
             text-align: center;
+            pointer-events: auto;
         }
         .pause-btn {
             padding: 10px 20px;
@@ -348,6 +359,7 @@
             border: none;
             cursor: pointer;
             font-weight: bold;
+            pointer-events: auto;
         }
         .resume-btn {
             background: #4361ee;
@@ -364,7 +376,10 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui-container">
             <div class="score-display">Score: <span id="score">0</span></div>
-            <div class="coins-display">🪙 <span id="coins">0</span></div>
+            <div class="coins-display">
+                <span class="coin-icon">●</span>
+                <span id="coins">0</span>
+            </div>
             <div class="progress-container">
                 <div class="progress-bar" id="levelProgress"></div>
             </div>
@@ -413,7 +428,10 @@
             <!-- Shop Menu (renamed to Update) -->
             <div class="menu" id="shopMenu">
                 <h2 style="margin-bottom:10px;">UPDATE</h2>
-                <div class="coins-display" style="position:relative; top:0; right:0; margin-bottom:15px;">🪙 <span id="shopCoins">0</span></div>
+                <div class="coins-display" style="position:relative; top:0; right:0; margin-bottom:15px;">
+                    <span class="coin-icon">●</span>
+                    <span id="shopCoins">0</span>
+                </div>
                 
                 <div class="tab-container">
                     <div class="tab active" data-tab="balls">Balls</div>
@@ -532,7 +550,11 @@
                 notification.className = 'notification';
                 notification.textContent = 'Error saving game progress';
                 document.getElementById('ui-container').appendChild(notification);
-                setTimeout(() => notification.remove(), 2000);
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 2000);
             }
         }
         
@@ -807,7 +829,7 @@
                 ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('₵', 0, 0);
+                ctx.fillText('●', 0, 0);
                 
                 ctx.restore();
             }
@@ -1338,7 +1360,7 @@
                 
                 const itemPrice = document.createElement('div');
                 itemPrice.className = 'shop-item-price';
-                itemPrice.textContent = isUnlocked ? 'Owned' : `${ball.price} 🪙`;
+                itemPrice.textContent = isUnlocked ? 'Owned' : `${ball.price} ●`;
                 
                 itemDiv.appendChild(itemImg);
                 itemDiv.appendChild(itemName);
@@ -1366,7 +1388,7 @@
                 
                 const itemPrice = document.createElement('div');
                 itemPrice.className = 'shop-item-price';
-                itemPrice.textContent = isUnlocked ? 'Owned' : `${theme.price} 🪙`;
+                itemPrice.textContent = isUnlocked ? 'Owned' : `${theme.price} ●`;
                 
                 itemDiv.appendChild(itemImg);
                 itemDiv.appendChild(itemName);
@@ -1630,13 +1652,15 @@
                 }
             });
             
-            // Resume button in pause overlay
+            // Resume button in pause overlay - Force add direct event handler
             document.getElementById('resumeBtn').addEventListener('click', function() {
+                console.log("Resume clicked");
                 togglePause(false);
             });
             
-            // Quit button in pause overlay
+            // Quit button in pause overlay - Force add direct event handler
             document.getElementById('quitBtn').addEventListener('click', function() {
+                console.log("Quit clicked");
                 togglePause(false);
                 returnToMainMenu();
             });
