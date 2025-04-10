@@ -306,12 +306,56 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             backdrop-filter: blur(5px);
             z-index: 20;
+            display: none;
         }
         
         .back-button:hover {
             background: rgba(255, 255, 255, 0.3);
             transform: translateX(-50%) translateY(-2px);
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Add this new style for pause overlay */
+        .pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 15;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+        }
+        .pause-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .pause-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .pause-btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .resume-btn {
+            background: #4361ee;
+            color: white;
+        }
+        .quit-btn {
+            background: #f72585;
+            color: white;
         }
     </style>
 </head>
@@ -329,6 +373,16 @@
             <div class="tutorial" id="tutorial">
                 <div class="tutorial-img">👆</div>
                 Tap to bounce the ball higher!
+            </div>
+            
+            <!-- Pause Overlay -->
+            <div class="pause-overlay" id="pauseOverlay">
+                <div class="pause-content">
+                    <h2>PAUSED</h2>
+                    <p>Current Score: <span id="pauseScore">0</span></p>
+                    <button class="pause-btn resume-btn" id="resumeBtn">RESUME</button>
+                    <button class="pause-btn quit-btn" id="quitBtn">QUIT</button>
+                </div>
             </div>
             
             <!-- Main Menu -->
@@ -405,17 +459,17 @@
         // Game Configuration
         const config = {
             initialBallSpeed: 15,
-            gravity: 0.6,                  // Increased gravity
+            gravity: 0.6,                  
             jumpForce: -15,
-            platformSpeed: 1.8,            // Faster platform movement
-            platformWidth: 80,             // Smaller platforms
-            platformHeight: 15,            // Thinner platforms
-            obstacleFrequency: 0.03,       // More obstacles
-            coinFrequency: 0.025,          // Slightly fewer coins
-            speedIncreaseInterval: 800,    // Faster speed increase
-            speedIncreaseAmount: 0.15,     // Larger speed increases
-            maxSpeed: 5,                   // Higher max speed
-            platformSpawnChance: 0.005     // Lower chance to spawn platforms (new property)
+            platformSpeed: 1.8,            
+            platformWidth: 80,             
+            platformHeight: 15,            
+            obstacleFrequency: 0.03,       
+            coinFrequency: 0.025,          
+            speedIncreaseInterval: 800,    
+            speedIncreaseAmount: 0.15,     
+            maxSpeed: 5,                   
+            platformSpawnChance: 0.005     
         };
         
         // Game State
@@ -425,6 +479,7 @@
             level: 1,
             levelProgress: 0,
             isGameActive: false,
+            isPaused: false,
             currentBall: 'default',
             currentTheme: 'default',
             unlockedBalls: ['default'],
@@ -432,7 +487,7 @@
             tutorialShown: false,
             lastDailySpin: null,
             highScore: 0,
-            difficulty: 'normal' // New property for difficulty setting
+            difficulty: 'normal'
         };
         
         // Helper function to convert hex color to rgb for glow effects
@@ -466,14 +521,18 @@
             document.getElementById('shopCoins').textContent = gameState.coins;
         }
         
-        // Save game state to localStorage
+        // Save game state to localStorage with better error handling
         function saveGameState() {
             try {
                 localStorage.setItem('bounceMasterState', JSON.stringify(gameState));
             } catch (e) {
                 console.log('Error saving game state:', e);
-                // Show notification to user
-                showNotification('Error saving game progress');
+                // Show notification without relying on localStorage
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.textContent = 'Error saving game progress';
+                document.getElementById('ui-container').appendChild(notification);
+                setTimeout(() => notification.remove(), 2000);
             }
         }
         
@@ -513,22 +572,22 @@
                 this.glowRgb = hexToRgb(glow);
             }
             
-            update() {
+            update(deltaTime = 1) {
                 // Add current position to trail
                 this.trail.unshift({x: this.x, y: this.y});
                 if (this.trail.length > this.maxTrail) {
                     this.trail.pop();
                 }
                 
-                // Apply gravity
-                this.velocityY += config.gravity;
+                // Apply gravity with deltaTime smoothing
+                this.velocityY += config.gravity * deltaTime;
                 
-                // Update position
-                this.y += this.velocityY;
-                this.x += this.velocityX;
+                // Update position with deltaTime smoothing
+                this.y += this.velocityY * deltaTime;
+                this.x += this.velocityX * deltaTime;
                 
                 // Update rotation
-                this.rotation += this.velocityX * 0.05;
+                this.rotation += this.velocityX * 0.05 * deltaTime;
                 
                 // Boundary checks
                 if (this.x < this.radius) {
@@ -549,7 +608,6 @@
                     
                     ctx.beginPath();
                     ctx.arc(this.trail[i].x, this.trail[i].y, trailRadius, 0, Math.PI * 2);
-                    // Fixed: Use RGB format for trail
                     ctx.fillStyle = `rgba(${this.glowRgb}, ${alpha})`;
                     ctx.fill();
                 }
@@ -598,13 +656,13 @@
                 this.opacity = 1;
             }
             
-            update() {
-                // Move platforms up
-                this.y -= config.platformSpeed;
+            update(deltaTime = 1) {
+                // Move platforms up with deltaTime smoothing
+                this.y -= config.platformSpeed * deltaTime;
                 
                 // For moving platforms
                 if (this.type === 'moving') {
-                    this.x += this.speed;
+                    this.x += this.speed * deltaTime;
                     
                     // Reverse direction if hitting edges
                     if (this.x < 0 || this.x + this.width > canvas.width) {
@@ -640,7 +698,7 @@
                         ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
                 }
                 
-                // Draw platform with rounded corners
+                // Draw platform with rounded corners (using our improved polyfill)
                 ctx.beginPath();
                 ctx.roundRect(this.x, this.y, this.width, this.height, 5);
                 ctx.fill();
@@ -700,21 +758,21 @@
                 this.collectedTime = 0;
             }
             
-            update() {
+            update(deltaTime = 1) {
                 // If collected, animate coin disappearing
                 if (this.collected) {
                     this.collectedTime++;
-                    this.radius -= 0.5;
-                    this.y -= 2;
+                    this.radius -= 0.5 * deltaTime;
+                    this.y -= 2 * deltaTime;
                     return this.collectedTime > 20; // Return true when animation is done
                 }
                 
                 // Move coin up with the rest of the game
-                this.y -= config.platformSpeed;
+                this.y -= config.platformSpeed * deltaTime;
                 
                 // Animate coin
-                this.rotation += 0.05;
-                this.scale += this.scaleDirection;
+                this.rotation += 0.05 * deltaTime;
+                this.scale += this.scaleDirection * deltaTime;
                 if (this.scale <= 0.8 || this.scale >= 1) {
                     this.scaleDirection *= -1;
                 }
@@ -777,32 +835,33 @@
         let bgGradient;
         let gameLoopId;
         let lastScoreUpdateTime = 0;
+        let lastFrameTime = 0;
         
-        // Set difficulty presets
+        // Set difficulty presets with better balance
         const difficultySettings = {
             easy: {
-                gravity: 0.5,
-                platformSpeed: 1.5,
-                platformWidth: 100,
-                platformHeight: 20,
-                platformSpawnChance: 0.01,
-                speedIncreaseAmount: 0.1
+                gravity: 0.4,              // Reduced gravity
+                platformSpeed: 1.4,        // Slower platforms
+                platformWidth: 120,        // Wider platforms
+                platformHeight: 20,        // Thicker platforms
+                platformSpawnChance: 0.015, // More platforms
+                speedIncreaseAmount: 0.08  // Slower progression
             },
             normal: {
-                gravity: 0.6,
-                platformSpeed: 1.8,
-                platformWidth: 80,
+                gravity: 0.55,
+                platformSpeed: 1.7,
+                platformWidth: 90,
                 platformHeight: 15,
-                platformSpawnChance: 0.005,
-                speedIncreaseAmount: 0.15
+                platformSpawnChance: 0.008,
+                speedIncreaseAmount: 0.12
             },
             hard: {
-                gravity: 0.7,
-                platformSpeed: 2.0,
-                platformWidth: 60,
+                gravity: 0.65,
+                platformSpeed: 1.9,
+                platformWidth: 70,
                 platformHeight: 12,
-                platformSpawnChance: 0.003,
-                speedIncreaseAmount: 0.2
+                platformSpawnChance: 0.004,
+                speedIncreaseAmount: 0.18
             }
         };
         
@@ -823,6 +882,7 @@
             gameState.score = 0;
             gameState.level = 1;
             gameState.levelProgress = 0;
+            gameState.isPaused = false;
             document.getElementById('score').textContent = '0';
             document.getElementById('levelProgress').style.width = '0%';
             
@@ -851,8 +911,8 @@
                 config.platformHeight
             ));
             
-            // Add fewer initial platforms for increased difficulty
-            for (let i = 0; i < 5; i++) {
+            // Add more initial platforms for better early game
+            for (let i = 0; i < 8; i++) {
                 addPlatform();
             }
             
@@ -864,7 +924,7 @@
             
             // Reset speed
             speedMultiplier = 1;
-            config.platformSpeed = 1.5; // Reset platform speed
+            config.platformSpeed = diffSetting.platformSpeed; // Set starting platform speed from difficulty
             
             // Show tutorial for new players
             if (!gameState.tutorialShown) {
@@ -880,23 +940,37 @@
             if (gameLoopId) {
                 cancelAnimationFrame(gameLoopId); // Cancel any existing game loop
             }
-            gameLoopId = requestAnimationFrame(gameLoop);
+            lastFrameTime = 0; // Reset frame time
             gameState.isGameActive = true;
+            gameLoopId = requestAnimationFrame(gameLoop);
             
             // Start timestamp for score updates
             lastScoreUpdateTime = Date.now();
         }
         
-        // Game loop
-        function gameLoop() {
-            if (!gameState.isGameActive) return;
+        // Game loop with better performance
+        function gameLoop(timestamp) {
+            if (!gameState.isGameActive || gameState.isPaused) {
+                if (gameState.isGameActive && gameState.isPaused) {
+                    // Keep requesting frames even when paused to handle resume
+                    gameLoopId = requestAnimationFrame(gameLoop);
+                }
+                return;
+            }
+            
+            // Calculate delta time for smooth animation
+            const deltaTime = lastFrameTime ? (timestamp - lastFrameTime) / 16.67 : 1; // Normalize to ~60fps
+            lastFrameTime = timestamp;
+            
+            // Limit deltaTime to prevent huge jumps after tab switch
+            const smoothDeltaTime = Math.min(deltaTime, 3);
             
             // Clear canvas
             ctx.fillStyle = bgGradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Update ball
-            ball.update();
+            ball.update(smoothDeltaTime);
             
             // Check if ball is below the screen
             if (ball.y > canvas.height + ball.radius * 2) {
@@ -922,7 +996,7 @@
             // Update and draw all platforms
             for (let i = platforms.length - 1; i >= 0; i--) {
                 const platform = platforms[i];
-                platform.update();
+                platform.update(smoothDeltaTime);
                 
                 // Remove platforms that are above the screen
                 if (platform.y + platform.height < 0) {
@@ -933,12 +1007,15 @@
                 
                 platform.draw(ctx);
                 
-                // Check collision with ball (only if ball is moving downward)
+                // Improved collision detection with ball
                 if (ball.velocityY > 0 && 
                     ball.x + ball.radius > platform.x && 
                     ball.x - ball.radius < platform.x + platform.width && 
-                    ball.y + ball.radius > platform.y && 
-                    ball.y + ball.radius < platform.y + platform.height + ball.velocityY) {
+                    ball.y + ball.radius > platform.y - 5 && // Added buffer zone
+                    ball.y - ball.radius < platform.y + platform.height) {
+                    
+                    // Position the ball properly on top of the platform
+                    ball.y = platform.y - ball.radius;
                     
                     // Different behavior based on platform type
                     switch(platform.type) {
@@ -975,7 +1052,7 @@
             // Update and draw all coins
             for (let i = coins.length - 1; i >= 0; i--) {
                 const coin = coins[i];
-                const removeAfterUpdate = coin.update();
+                const removeAfterUpdate = coin.update(smoothDeltaTime);
                 
                 // Remove coins that are above the screen or done with collection animation
                 if (coin.y + coin.radius < 0 || removeAfterUpdate) {
@@ -1010,13 +1087,13 @@
             // Draw the ball
             ball.draw(ctx);
             
-            // Add new platform randomly with reduced chance
-            if (Math.random() < config.platformSpawnChance) {
+            // Add new platform randomly with adjusted chance
+            if (Math.random() < config.platformSpawnChance * smoothDeltaTime) {
                 addPlatform();
             }
             
-            // Add new coin randomly
-            if (Math.random() < config.coinFrequency) {
+            // Add new coin randomly with deltaTime adjustment
+            if (Math.random() < config.coinFrequency * smoothDeltaTime) {
                 addCoin();
             }
             
@@ -1034,19 +1111,19 @@
                     gameState.level++;
                     
                     // Increase difficulty
-                    speedMultiplier += 0.15;
+                    speedMultiplier += config.speedIncreaseAmount;
                     if (speedMultiplier > config.maxSpeed) {
                         speedMultiplier = config.maxSpeed;
                     }
                     
                     // Apply speed to game with progressive difficulty
-                    config.platformSpeed = 1.8 * speedMultiplier;
+                    config.platformSpeed = difficultySettings[gameState.difficulty].platformSpeed * speedMultiplier;
                     
-                    // Reduce platform spawn chance as level increases
-                    config.platformSpawnChance = Math.max(0.0025, 0.005 - (gameState.level * 0.0004));
-                    
-                    // Make gravity stronger as level increases
-                    config.gravity = Math.min(1.0, 0.6 + (gameState.level * 0.03));
+                    // Reduce platform spawn chance as level increases (but not too much)
+                    config.platformSpawnChance = Math.max(
+                        difficultySettings[gameState.difficulty].platformSpawnChance * 0.7, 
+                        difficultySettings[gameState.difficulty].platformSpawnChance - (gameState.level * 0.0003)
+                    );
                     
                     // Show level up notification
                     showNotification(`Level ${gameState.level}!`);
@@ -1061,32 +1138,42 @@
             }
         }
         
-        // Add new platform
+        // Add new platform with improved positioning
         function addPlatform() {
-            // Platform width decreases as level increases
+            // Platform width varies less drastically by level
             const levelFactor = Math.min(0.7, 0.1 + (gameState.level * 0.05));
-            const minWidth = Math.max(30, 60 - (gameState.level * 2));
-            const maxWidth = Math.max(70, 120 - (gameState.level * 4));
+            const minWidth = Math.max(difficultySettings[gameState.difficulty].platformWidth * 0.7, 
+                                      difficultySettings[gameState.difficulty].platformWidth - (gameState.level * 2));
+            const maxWidth = Math.max(difficultySettings[gameState.difficulty].platformWidth * 0.9, 
+                                      difficultySettings[gameState.difficulty].platformWidth - (gameState.level * 1.5));
             const width = minWidth + Math.random() * (maxWidth - minWidth);
             
-            // Randomly position platform with more space on edges as level increases
-            const edgeBuffer = gameState.level * 5;
+            // Better distribution of platforms
+            const edgeBuffer = 10 + (gameState.level * 2); // Increase edge buffer with level
             const x = edgeBuffer + Math.random() * (canvas.width - width - (edgeBuffer * 2));
             const y = canvas.height;
             
-            // Determine platform type with increasing difficulty based on level
+            // Make sure platforms are spaced apart enough vertically
+            const minPlatformY = canvas.height - 100;
+            const platformsNearBottom = platforms.filter(p => p.y > minPlatformY);
+            if (platformsNearBottom.length > 0) {
+                // If there's already a platform near the bottom, don't add another
+                return;
+            }
+            
+            // Determine platform type with balanced difficulty
             let type = 'normal';
             const randomValue = Math.random();
             
-            // More special platforms at higher levels
-            if (gameState.level >= 1) { // Start special platforms from level 1
-                if (randomValue < 0.15 + (gameState.level * 0.05)) {
+            // More balanced platform type distribution
+            if (gameState.level >= 1) {
+                if (randomValue < 0.1 + (gameState.level * 0.03)) {
                     type = 'moving';
-                } else if (randomValue < 0.25 + (gameState.level * 0.05) && gameState.level >= 2) {
+                } else if (randomValue < 0.2 + (gameState.level * 0.02) && gameState.level >= 2) {
                     type = 'breaking';
-                } else if (randomValue < 0.35 + (gameState.level * 0.05) && gameState.level >= 3) {
+                } else if (randomValue < 0.3 + (gameState.level * 0.02) && gameState.level >= 3) {
                     type = 'bouncy';
-                } else if (randomValue < 0.4 + (gameState.level * 0.03) && gameState.level >= 3) {
+                } else if (randomValue < 0.32 + (gameState.level * 0.015) && gameState.level >= 4) {
                     type = 'spike';
                 }
             }
@@ -1094,12 +1181,29 @@
             platforms.push(new Platform(x, y, width, config.platformHeight, type));
         }
         
-        // Add new coin
+        // Add new coin with better positioning
         function addCoin() {
-            const x = Math.random() * canvas.width;
+            // Avoid placing coins too close to edges
+            const edgeBuffer = 30;
+            const x = edgeBuffer + Math.random() * (canvas.width - edgeBuffer * 2);
             const y = canvas.height;
             
             coins.push(new Coin(x, y));
+        }
+        
+        // Toggle pause state
+        function togglePause(pause) {
+            if (pause === gameState.isPaused) return;
+            
+            gameState.isPaused = pause;
+            
+            if (pause) {
+                document.getElementById('pauseOverlay').classList.add('active');
+                document.getElementById('pauseScore').textContent = gameState.score;
+            } else {
+                document.getElementById('pauseOverlay').classList.remove('active');
+                lastFrameTime = 0; // Reset frame time to avoid huge jumps
+            }
         }
         
         // Game over
@@ -1132,7 +1236,7 @@
             playSound('gameover');
         }
         
-        // Show notification
+        // Show notification with improved reliability
         function showNotification(text) {
             const notification = document.createElement('div');
             notification.className = 'notification';
@@ -1142,7 +1246,9 @@
             
             // Remove notification after animation
             setTimeout(() => {
-                notification.remove();
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
             }, 2000);
         }
         
@@ -1160,6 +1266,9 @@
             document.querySelectorAll('.menu').forEach(menu => {
                 menu.classList.remove('active');
             });
+            
+            // Hide pause overlay
+            document.getElementById('pauseOverlay').classList.remove('active');
             
             // Hide back button when not in game
             document.getElementById('backToMenuBtn').style.display = 'none';
@@ -1182,6 +1291,7 @@
             
             // Reset game state
             gameState.isGameActive = false;
+            gameState.isPaused = false;
             
             // Hide in-game UI elements
             document.getElementById('tutorial').classList.remove('active');
@@ -1343,6 +1453,11 @@
                 ? balls.find(b => b.id === itemId)
                 : themes.find(t => t.id === itemId);
             
+            if (!itemData) {
+                console.error('Item not found:', itemId, itemType);
+                return;
+            }
+            
             // Check if already unlocked
             const isUnlocked = itemType === 'ball'
                 ? gameState.unlockedBalls.includes(itemId)
@@ -1444,18 +1559,43 @@
             saveGameState();
         }
         
+        // Better polyfill for roundRect
+        function polyfillRoundRect() {
+            if (!CanvasRenderingContext2D.prototype.roundRect) {
+                CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                    // Ensure radius is not too large for the rectangle
+                    if (width < 2 * radius) radius = width / 2;
+                    if (height < 2 * radius) radius = height / 2;
+                    
+                    this.beginPath();
+                    this.moveTo(x + radius, y);
+                    this.arcTo(x + width, y, x + width, y + height, radius);
+                    this.arcTo(x + width, y + height, x, y + height, radius);
+                    this.arcTo(x, y + height, x, y, radius);
+                    this.arcTo(x, y, x + width, y, radius);
+                    this.closePath();
+                    return this;
+                };
+            }
+        }
+        
         // Function to add event listeners
         function setupEventListeners() {
-            // Canvas event listeners for touch/click
+            // Canvas event listeners for touch/click with better handling
             canvas.addEventListener('touchstart', function(e) {
-                e.preventDefault();
-                if (gameState.isGameActive) {
+                e.preventDefault(); // Prevent scrolling
+                if (gameState.isGameActive && !gameState.isPaused) {
                     ball.jump();
                 }
-            });
+            }, { passive: false }); // Important for newer browsers
+            
+            // Prevent unwanted zooming
+            canvas.addEventListener('touchend', function(e) {
+                e.preventDefault();
+            }, { passive: false });
             
             canvas.addEventListener('click', function(e) {
-                if (gameState.isGameActive) {
+                if (gameState.isGameActive && !gameState.isPaused) {
                     ball.jump();
                 }
             });
@@ -1480,34 +1620,25 @@
             
             // UI button event listeners
             document.getElementById('playBtn').addEventListener('click', function() {
-                console.log('Play button clicked');
-                showNotification('Starting game...');
                 startGame();
             });
             
-            // Back to menu button
+            // Pause/resume game
             document.getElementById('backToMenuBtn').addEventListener('click', function() {
                 if (gameState.isGameActive) {
-                    // Stop the game loop
-                    gameState.isGameActive = false;
-                    if (gameLoopId) {
-                        cancelAnimationFrame(gameLoopId);
-                        gameLoopId = null;
-                    }
-                    
-                    // Show confirmation if score is above threshold
-                    if (gameState.score > 100) {
-                        if (confirm('Are you sure you want to quit? Your current progress will be lost.')) {
-                            returnToMainMenu();
-                        } else {
-                            // Resume game if they cancel
-                            gameState.isGameActive = true;
-                            gameLoopId = requestAnimationFrame(gameLoop);
-                        }
-                    } else {
-                        returnToMainMenu();
-                    }
+                    togglePause(true);
                 }
+            });
+            
+            // Resume button in pause overlay
+            document.getElementById('resumeBtn').addEventListener('click', function() {
+                togglePause(false);
+            });
+            
+            // Quit button in pause overlay
+            document.getElementById('quitBtn').addEventListener('click', function() {
+                togglePause(false);
+                returnToMainMenu();
             });
             
             document.getElementById('restartBtn').addEventListener('click', startGame);
@@ -1555,49 +1686,66 @@
                 });
             });
             
-            // Window resize event
+            // Window resize event with better handling
             window.addEventListener('resize', function() {
-                if (gameState.isGameActive) {
-                    // Store current ball position
-                    const ballX = ball.x / canvas.width; // Store as percentage
-                    const ballY = ball.y / canvas.height;
-                    
-                    resizeCanvas();
-                    
+                const wasActive = gameState.isGameActive;
+                const wasPaused = gameState.isPaused;
+                
+                if (wasActive && !wasPaused) {
+                    // Briefly pause the game during resize
+                    gameState.isPaused = true;
+                }
+                
+                // Store current ball position as percentages
+                const ballXPercent = ball ? ball.x / canvas.width : 0.5;
+                const ballYPercent = ball ? ball.y / canvas.height : 0.5;
+                
+                resizeCanvas();
+                
+                if (ball) {
                     // Update ball position based on new canvas size
-                    ball.x = ballX * canvas.width;
-                    ball.y = ballY * canvas.height;
+                    ball.x = ballXPercent * canvas.width;
+                    ball.y = ballYPercent * canvas.height;
                     
                     // Re-create background gradient
                     const themeSkin = themes.find(t => t.id === gameState.currentTheme);
                     bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
                     bgGradient.addColorStop(0, themeSkin.bgStart);
                     bgGradient.addColorStop(1, themeSkin.bgEnd);
-                } else {
-                    resizeCanvas();
+                }
+                
+                // Resume the game if it was active before
+                if (wasActive && !wasPaused) {
+                    setTimeout(() => {
+                        gameState.isPaused = false;
+                        lastFrameTime = 0; // Reset frame time to avoid huge jumps
+                    }, 100);
                 }
             });
             
             // Disable context menu on long press (for mobile)
             document.addEventListener('contextmenu', e => e.preventDefault());
-        }
-        
-        // Add roundRect to Canvas context if not supported
-        function polyfillRoundRect() {
-            if (!CanvasRenderingContext2D.prototype.roundRect) {
-                CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
-                    if (width < 2 * radius) radius = width / 2;
-                    if (height < 2 * radius) radius = height / 2;
-                    this.beginPath();
-                    this.moveTo(x + radius, y);
-                    this.arcTo(x + width, y, x + width, y + height, radius);
-                    this.arcTo(x + width, y + height, x, y + height, radius);
-                    this.arcTo(x, y + height, x, y, radius);
-                    this.arcTo(x, y, x + width, y, radius);
-                    this.closePath();
-                    return this;
-                };
-            }
+            
+            // Handle page visibility for automatic pausing
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden && gameState.isGameActive && !gameState.isPaused) {
+                    togglePause(true);
+                }
+            });
+            
+            // Add keyboard controls
+            document.addEventListener('keydown', function(e) {
+                // Space or up arrow to jump
+                if ((e.code === 'Space' || e.code === 'ArrowUp') && 
+                    gameState.isGameActive && !gameState.isPaused) {
+                    ball.jump();
+                }
+                
+                // P or Escape to pause/resume
+                if ((e.code === 'KeyP' || e.code === 'Escape') && gameState.isGameActive) {
+                    togglePause(!gameState.isPaused);
+                }
+            });
         }
         
         // Initialize the game
@@ -1638,13 +1786,8 @@
                 // Show main menu
                 showMainMenu();
                 
-                // Ensure the title shows "Bounce Mania" instead of "Bounce Master"
+                // Ensure the title shows "Bounce Mania"
                 document.title = "Bounce Mania";
-                
-                // Make sure main menu is visible initially
-                if (!document.getElementById('mainMenu').classList.contains('active')) {
-                    showMainMenu();
-                }
                 
                 console.log('Game initialized successfully');
             } catch (e) {
